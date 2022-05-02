@@ -24,6 +24,9 @@ exports.homepage = async(req,res) => {
     }  
 }
 
+exports.about = async(req,res) => {
+  res.render('about')
+}
 
 /**
  * GET /categories
