@@ -1,6 +1,11 @@
 require('../models/database');
 const Category = require('../models/Category');
 const Recipe = require('../models/Recipe');
+const HedgeStock = require('../models/HedgeStock');
+const HedgeFund = require('../models/HedgeFund');
+const NasdaqUS = require('../models/NasdaqUS');
+const NyseUS = require('../models/NyseUS');
+
 
 /**
  * GET / 
@@ -12,28 +17,118 @@ exports.homepage = async(req,res) => {
         const categories = await Category.find({}).limit(limitNumber);
         const latest = await Recipe.find({}).sort({_id: -1}).limit(limitNumber) // 5개만 넘어오게
         
-        const thai = await Recipe.find({ 'category': 'Thai'}).limit(limitNumber);
-        const american = await Recipe.find({ 'category': 'American'}).limit(limitNumber);
-        const chinese = await Recipe.find({ 'category': 'Chinese'}).limit(limitNumber);
+        // const thai = await Recipe.find({ 'category': 'Thai'}).limit(limitNumber);
+        // const american = await Recipe.find({ 'category': 'American'}).limit(limitNumber);
+        // const chinese = await Recipe.find({ 'category': 'Chinese'}).limit(limitNumber);
         
-        const food = { latest, thai, american, chinese };
+        // const food = { latest, thai, american, chinese };
+
+        const hedgefund = await HedgeFund.find({}).limit(limitNumber);
         
-        res.render('index', { title: 'Alexandro Henry - Home', categories, food });
+        res.render('index', { title: 'Alexandro Henry - Home', categories, hedgefund });
     } catch (error) {
         res.status(500).send({message: error.message || "Error Occurred"});
     }  
 }
+
+/**
+ * POST /search
+ * Search
+ */
+ exports.searchRecipe = async(req, res) => {
+
+  //searchTerm
+  try {
+      let searchTerm = req.body.searchTerm;
+
+      // let recipe = await Recipe.find({ $text: { $search: searchTerm, $diacriticSensitive: true, $caseSensitive: false }});
+      // let recipe = await Recipe.find({ name: {$regex:`${searchTerm}`, $options : 'i'}}) // 검색 조건에 문자열 포함 및 대소문자 구별 X
+
+      // or 조건문
+      let nasdaqUS = await NasdaqUS.find({$or: [{ticker: {$regex:`^${searchTerm}`, $options : 'i'}}, {longnameUS: {$regex:`^${searchTerm}`, $options : 'i'}}]});
+      let nyseUS = await NyseUS.find({$or: [{ticker: {$regex:`^${searchTerm}`, $options : 'i'}}, {longnameUS: {$regex:`^${searchTerm}`, $options : 'i'}}]})
+
+      let hedgeFund = await HedgeFund.find({ stock: {$elemMatch: {symbol: {$regex:`${searchTerm}`, $options : 'i'}}}})
+
+      const stock = {nasdaqUS, nyseUS}
+      // res.json(nasdaqKRbyTicker);
+      res.render('search', {title: 'Alexandro Henry - Search', stock, hedgeFund});
+  } catch (error) {
+      res.status(500).send({ message: error.message || "Error Occurred"});
+  }
+
+  
+}
+
+
+
+/**
+ * POST /stock/:ticker
+ * stockDetail
+ */
+
+ exports.stockDetail = async(req, res) => {
+
+  try {
+    let symbol = req.params.ticker;
+    console.log(symbol)
+
+    let nasdaqInfo = await NasdaqUS.findOne( {ticker: `${symbol}`})
+    let nyseInfo = await NyseUS.findOne({ticker: `${symbol}`})
+
+    // const stock = {nyseInfo, nasdaqInfo}
+    // res.json(nasdaqInfo);
+    
+    res.render('stock-detail', {title: `Alexandro Henry - ${symbol}`, nasdaqInfo, nyseInfo})
+
+
+  } catch(error) {
+    res.status(500).send({ message: error.message || "Error Occurred"});
+  }
+
+ }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 /**
  * GET /categories
  * Categories 
 */
-exports.exploreCategories = async(req, res) => {
+exports.exploreHedges = async(req, res) => {
     try {
       const limitNumber = 20;
       const categories = await Category.find({}).limit(limitNumber);
-      res.render('categories', { title: 'Alexandro Henry - Categoreis', categories } );
+      res.render('hedges', { title: 'Alexandro Henry - Categoreis', categories } );
     } catch (error) {
       res.satus(500).send({message: error.message || "Error Occured" });
     }
@@ -44,7 +139,7 @@ exports.exploreCategories = async(req, res) => {
  * GET /categories/:id
  * Categories By Id
 */
-exports.exploreCategoriesById = async(req, res) => { 
+exports.exploreHedgeById = async(req, res) => { 
     try {
       let categoryId = req.params.id;
       const limitNumber = 20;
@@ -56,41 +151,10 @@ exports.exploreCategoriesById = async(req, res) => {
   } 
 
 
-/**
- * GET /recipe/:id
- * Recipe 
-*/
-exports.exploreRecipe = async(req, res) => {
-    try {
-      let recipeId = req.params.id;
-      const recipe = await Recipe.findById(recipeId);
-      res.render('recipe', { title: 'Alexandro Henry - Recipe', recipe } );
-    } catch (error) {
-      res.satus(500).send({message: error.message || "Error Occured" });
-    }
-} 
 
 
-/**
- * POST /search
- * Search
- */
-exports.searchRecipe = async(req, res) => {
 
-    //searchTerm
 
-    try {
-        let searchTerm = req.body.searchTerm;
-
-        let recipe = await Recipe.find({ $text: { $search: searchTerm, $diacriticSensitive: true }});
-        // res.json(recipe);
-        res.render('search', {title: 'Alexandro Henry - Search', recipe});
-    } catch (error) {
-        res.status(500).send({ message: error.message || "Error Occurred"});
-    }
-
-    
-}
 
 
 /**
@@ -129,20 +193,20 @@ exports.exploreRandom = async(req, res) => {
 } 
 
 /**
- * GET /submit-recipe
- * Submit Recipe
+ * GET /submit-portfolio
+ * Submit Portfolio
 */
-exports.submitRecipe = async(req, res) => {
+exports.submitPortfolio = async(req, res) => {
   const infoErrorsObj = req.flash('infoErrors');
   const infoSubmitObj = req.flash('infoSubmit');
-  res.render('submit-recipe', { title: 'Cooking Blog - Submit Recipe', infoErrorsObj, infoSubmitObj  } );
+  res.render('submit-portfolio', { title: 'Alexandro Henry - Submit Portfolio', infoErrorsObj, infoSubmitObj  } );
 }
 
 /**
- * POST /submit-recipe
- * Submit Recipe
+ * POST /submit-portfolio
+ * Submit Portfolio
 */
-exports.submitRecipeOnPost = async(req, res) => {
+exports.submitPortfolioOnPost = async(req, res) => {
   try {
 
     let imageUploadFile;
@@ -164,15 +228,6 @@ exports.submitRecipeOnPost = async(req, res) => {
 
     }
 
-    // const newRecipe = new Recipe({
-    //   name: 'Biotech',
-    //   description: 'Biotech company Portfolio',
-    //   email: 'halaxhenry@gmail.com',
-    //   ingredients: ['AMGN', 'BIIB', 'TECH', 'HRMY', 'REGN', 'CORT', 'INCY'],
-    //   category: 'American',
-    //   image: 'biotech.jpeg'
-    // });
-
     const newRecipe = new Recipe({
       name: req.body.name,
       description: req.body.description,
@@ -192,195 +247,3 @@ exports.submitRecipeOnPost = async(req, res) => {
     res.redirect('/submit-recipe');
   }
 }
-
-// async function deleteRecipe() {
-//   try {
-//     await Recipe.deleteOne({ name: 'New Recipe Updated'});
-//   } catch (error) {
-//     console.log(error);
-//   }
-// }
-
-// deleteRecipe();
-
-
-// async function updateRecipe() {
-//   try {
-//     const res = await Recipe.updateOne({ name: 'New Recipe'}, { name: 'New Recipe Updated'});
-//     res.n; // Number of documents matched
-//     res.nModified; // Number of documents modified
-//   } catch (error) {
-//     console.log(error);
-//   }
-// }
-
-// updateRecipe()
-
-
-
-
-
-
-// async function insertDummyCategoryData() {
-    
-//     try{
-//         await Category.insertMany([
-//             {
-//                 "name": "Thai",
-//                 "image": "thai-food.jpg"
-//             },
-//             {
-//                 "name": "American",
-//                 "image": "american-food.jpg"
-//             },
-//             {
-//                 "name": "Chinese",
-//                 "image": "chinese-food.jpg"
-//             },
-//             {
-//                 "name": "Mexican",
-//                 "image": "mexican-food.jpg"
-//             },
-//             {
-//                 "name": "Indian",
-//                 "image": "indian-food.jpg"
-//             },
-//             {
-//                 "name": "Spanish",
-//                 "image": "spanish-food.jpg"
-//             },
-//             {
-//                 "name": "Korean",
-//                 "image": "korean-food.jpg"
-//             },
-//         ]);
-//     } catch (error) {
-//         console.log('err', + error)
-//     }
-// }
-
-// insertDummyCategoryData();
-
-// async function insertDummyCategoryData() {
-    
-//     try{
-//         await Category.insertMany([
-//             {
-//                 "name": "John Templeton",
-//                 "image": "JohnTempleton.jpeg"
-//             },
-//             {
-//                 "name": "George Soros",
-//                 "image": "GeorgeSoros.jpeg"
-//             },
-//             {
-//                 "name": "Warren Buffett",
-//                 "image": "WarrenBuffett.jpeg"
-//             },
-//             {
-//                 "name": "Peter Lynch",
-//                 "image": "PeterLynch.jpeg"
-//             },
-//             {
-//                 "name": "Ray Dalio",
-//                 "image": "RayDalio.jpeg"
-//             },
-//             {
-//                 "name": "Cathie Wood",
-//                 "image": "CathieWood.jpeg"
-//             },
-//             {
-//                 "name": "Kotegawa Takashi",
-//                 "image": "KotegawaTakashi.jpeg"
-//             },
-//         ]);
-//     } catch (error) {
-//         console.log('err', + error)
-//     }
-// }
-
-// insertDummyCategoryData();
-
-
-// async function insertDymmyRecipeData(){
-//     try {
-//     await Recipe.insertMany([
-//         { 
-//         "name": "Credit Payment Systems",
-//         "description": `Recipe Description Goes Here`,
-//         "email": "recipeemail@raddy.co.uk",
-//         "ingredients": [
-//             "1 level teaspoon baking powder",
-//             "1 level teaspoon cayenne pepper",
-//             "1 level teaspoon hot smoked paprika",
-//         ],
-//         "category": "American", 
-//         "image": "creditsystem.jpeg"
-//         },
-//         { 
-//             "name": "Electronic Car",
-//             "description": `Recipe Description Goes Here`,
-//             "email": "recipeemail@raddy.co.uk",
-//             "ingredients": [
-//                 "1 level teaspoon baking powder",
-//                 "1 level teaspoon cayenne pepper",
-//                 "1 level teaspoon hot smoked paprika",
-//             ],
-//             "category": "American", 
-//             "image": "electronicCar.jpeg"
-//         },
-//         { 
-//             "name": "FAAMNG",
-//             "description": `Recipe Description Goes Here`,
-//             "email": "recipeemail@raddy.co.uk",
-//             "ingredients": [
-//                 "1 level teaspoon baking powder",
-//                 "1 level teaspoon cayenne pepper",
-//                 "1 level teaspoon hot smoked paprika",
-//             ],
-//             "category": "American", 
-//             "image": "faamng.jpeg"
-//         },
-//         { 
-//             "name": "Foodies",
-//             "description": `Recipe Description Goes Here`,
-//             "email": "recipeemail@raddy.co.uk",
-//             "ingredients": [
-//                 "1 level teaspoon baking powder",
-//                 "1 level teaspoon cayenne pepper",
-//                 "1 level teaspoon hot smoked paprika",
-//             ],
-//             "category": "American", 
-//             "image": "foodies.jpeg"
-//         },
-//         { 
-//         "name": "Supermarkets",
-//         "description": `Recipe Description Goes Here`,
-//         "email": "recipeemail@raddy.co.uk",
-//         "ingredients": [
-//             "1 level teaspoon baking powder",
-//             "1 level teaspoon cayenne pepper",
-//             "1 level teaspoon hot smoked paprika",
-//         ],
-//         "category": "American", 
-//         "image": "supermarket.jpeg"
-//         },
-//         { 
-//             "name": "Tech Kings",
-//             "description": `Recipe Description Goes Here`,
-//             "email": "recipeemail@raddy.co.uk",
-//             "ingredients": [
-//                 "1 level teaspoon baking powder",
-//                 "1 level teaspoon cayenne pepper",
-//                 "1 level teaspoon hot smoked paprika",
-//             ],
-//             "category": "American", 
-//             "image": "techIndustry.jpeg"
-//         },
-//     ]);
-//     } catch (error) {
-//     console.log('err', + error)
-//     }
-// }
-    
-// insertDymmyRecipeData();

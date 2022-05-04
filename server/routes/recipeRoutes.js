@@ -6,14 +6,18 @@ const recipeController = require('../controllers/recipeController');
  *  App Routes
  */
 router.get('/', recipeController.homepage);
-router.get('/recipe/:id', recipeController.exploreRecipe );
-router.get('/categories', recipeController.exploreCategories);
-router.get('/categories/:id', recipeController.exploreCategoriesById);
+
+router.get('/hedge', recipeController.exploreHedges);
+router.get('/hedge/:id', recipeController.exploreHedgeById);
+
+
 router.post('/search', recipeController.searchRecipe);
 router.get('/explore-latest', recipeController.exploreLatest);
 router.get('/explore-random', recipeController.exploreRandom);
 
-router.get('/submit-recipe', recipeController.submitRecipe);
-router.post('/submit-recipe', recipeController.submitRecipeOnPost);
+router.get('/submit-portfolio', recipeController.submitPortfolio);
+router.post('/submit-portfolio', recipeController.submitPortfolioOnPost);
+
+router.get('/stock/:ticker', recipeController.stockDetail);
 
 module.exports = router;
